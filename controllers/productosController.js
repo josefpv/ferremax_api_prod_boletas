@@ -1,7 +1,7 @@
 const productosModel = require("./../models/productosModel");
 
 const fetchProductos = async (req, res) => {
-  const productosLista = productosModel.fetchProductos();
+  const productosLista = await productosModel.fetchProductos();
   return res.status(200).send(productosLista);
 };
 
@@ -12,7 +12,7 @@ const fetchProductosID = async (req, res) => {
     return res.status(400).send({ error: `El ID del producto es requerido.` });
   }
 
-  const productoEncontrado = productosModel.fetchProductosID(id);
+  const productoEncontrado = await productosModel.fetchProductosID(id);
   return res.status(200).send(productoEncontrado);
 };
 
@@ -46,7 +46,7 @@ const agregaProducto = async (req, res) => {
       .send({ error: `El parametro precioUnitario es requerido` });
   }
 
-  const id = productosModel.agregaProducto(
+  const productoAgregadoId = await productosModel.agregaProducto(
     nombre,
     descripcion,
     cantidad,
@@ -55,15 +55,9 @@ const agregaProducto = async (req, res) => {
     moneda
   );
 
-  if (id !== "") {
-    return res
-      .status(200)
-      .send({ msg: `Producto agregado correctamente.`, id });
-  }
-
   return res
-    .status(400)
-    .send({ error: `No se pudo registrar el producto, intente nuevamente.` });
+    .status(200)
+    .send({ msg: `Producto agregado correctamente.`, productoAgregadoId });
 };
 
 const actualizaProducto = async (req, res) => {
@@ -71,14 +65,15 @@ const actualizaProducto = async (req, res) => {
 
   const { id } = req.params;
   const { nombre, descripcion, cantidad, precioUnitario } = req.body;
-  let objDatosProducto = {};
 
   Object.keys(req.body).forEach((campo) => {
     if (!campos.includes(campo)) {
       return res.status(400).send({ error: `Parametro ${campo} desconocido.` });
     } else {
-      if (campo !== "") {
-        objDatosProducto[campo] = req.body[campo];
+      if (campo == "") {
+        return res
+          .status(400)
+          .send({ error: `El parametro ${campo} es requerido.` });
       }
     }
   });
@@ -87,12 +82,24 @@ const actualizaProducto = async (req, res) => {
     return res.status(400).send({ error: `El parametro ID es invalido.` });
   }
 
-  const productoActualizado = productosModel.actualizaProducto(
+  const productoActualizado = await productosModel.actualizaProducto(
     id,
-    objDatosProducto
+    nombre,
+    descripcion,
+    cantidad,
+    precioUnitario
   );
 
-  return res.status(200).send(productoActualizado);
+  return res.status(200).send({
+    msg: `Producto actualizado.`,
+    productoActualizado: {
+      id,
+      nombre,
+      descripcion,
+      cantidad,
+      precioUnitario,
+    },
+  });
 };
 
 module.exports = {

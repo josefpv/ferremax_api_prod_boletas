@@ -1,5 +1,6 @@
 const _ = require("lodash");
 const { v4: uuidv4 } = require("uuid");
+const { poolPromise, sql } = require("./../database");
 
 const generateProductID = () => {
   return uuidv4();
@@ -44,16 +45,24 @@ let productosLista = [
   },
 ];
 
-const fetchProductos = () => {
-  return productosLista;
+const fetchProductos = async () => {
+  const pool = await poolPromise;
+  const result = await pool.request().query("SELECT * FROM productos;");
+  return result.recordset;
 };
 
-const fetchProductosID = (id) => {
-  const productoEncontrado = _.filter(productosLista, { id });
-  return productoEncontrado;
+const fetchProductosID = async (id) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query("SELECT * FROM productos WHERE id = @id;");
+  return result.recordset;
+  //const productoEncontrado = _.filter(productosLista, { id });
+  //return productoEncontrado;
 };
 
-const agregaProducto = (
+const agregaProducto = async (
   nombre,
   descripcion,
   cantidad,
@@ -61,32 +70,42 @@ const agregaProducto = (
   image,
   moneda = "CLP"
 ) => {
-  let id = generateProductID();
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("nombre", sql.VarChar, nombre)
+    .input("descripcion", sql.VarChar, descripcion)
+    .input("cantidad", sql.Int, cantidad)
+    .input("precioUnitario", sql.Int, precioUnitario)
+    .input("imagen", sql.VarChar, image)
+    .input("moneda", sql.VarChar, moneda)
+    .query(
+      "INSERT INTO productos (nombre, descripcion, cantidad, precio_unitario, moneda, imagen) VALUES (@nombre, @descripcion, @cantidad, @precioUnitario, @moneda, @imagen); SELECT SCOPE_IDENTITY() AS id;"
+    );
 
-  productosLista.push({
-    id,
-    nombre,
-    descripcion,
-    cantidad,
-    precioUnitario,
-    moneda,
-    image,
-  });
-  return id;
+  return result.recordset[0].id;
 };
 
-const actualizaProducto = (id, datosObj) => {
-  let copiaProductos = [...productosLista];
-  const productoEncontrado = _.filter(copiaProductos, { id });
+const actualizaProducto = async (
+  id,
+  nombre,
+  descripcion,
+  cantidad,
+  precioUnitario
+) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .input("nombre", sql.VarChar, nombre)
+    .input("descripcion", sql.VarChar, descripcion)
+    .input("cantidad", sql.Int, cantidad)
+    .input("precioUnitario", sql.Int, precioUnitario)
+    .query(
+      "UPDATE productos SET nombre = @nombre, descripcion = @descripcion, cantidad =  @cantidad, precio_unitario = @precioUnitario WHERE id = @id;"
+    );
 
-  if (productoEncontrado.length) {
-    const index = _.findIndex(copiaProductos, productoEncontrado[0]);
-    copiaProductos[index] = { id, ...copiaProductos[index], ...datosObj };
-    productosLista = copiaProductos;
-    return copiaProductos[index];
-  }
-
-  return [];
+  return result.rowsAffected[0];
 };
 
 module.exports = {

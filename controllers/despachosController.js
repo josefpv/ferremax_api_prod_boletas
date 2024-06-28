@@ -1,7 +1,7 @@
 const despachosModel = require("./../models/despachosModel");
 
 const fetchDespachos = async (req, res) => {
-  const despachos = despachosModel.fetchDespachos();
+  const despachos = await despachosModel.fetchDespachos();
   return res.status(200).send(despachos);
 };
 
@@ -12,7 +12,7 @@ const fetchDespachoId = async (req, res) => {
     return res.status(400).send({ error: `El parametro id es requerido.` });
   }
 
-  const despacho = despachosModel.fetchDespachoId(id);
+  const despacho = await despachosModel.fetchDespachoId(id);
   return res.status(200).send(despacho);
 };
 
@@ -25,7 +25,7 @@ const agregaDespacho = async (req, res) => {
       .send({ error: `El parametro idVenta es requerido.` });
   }
 
-  const id = despachosModel.agregaDespacho(idVenta);
+  const id = await despachosModel.agregaDespacho(idVenta);
   return res.status(200).send({ id });
 };
 
@@ -36,8 +36,8 @@ const actualizaDespacho = async (req, res) => {
     return res.status(400).send({ error: `El parametro id es requerido.` });
   }
 
-  const despacho = despachosModel.actualizaDespacho(id);
-  return res.status(200).send(despacho);
+  const despacho = await despachosModel.actualizaDespacho(id);
+  return res.status(200).send({ msg: `Se ha actualizado el despacho.` });
 };
 
 module.exports = {

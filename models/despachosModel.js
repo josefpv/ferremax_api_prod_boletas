@@ -1,5 +1,6 @@
 const _ = require("lodash");
 const { v4: uuidv4 } = require("uuid");
+const { poolPromise, sql } = require("./../database");
 
 const generateDespachoID = () => {
   return uuidv4();
@@ -7,40 +8,46 @@ const generateDespachoID = () => {
 
 let listaDespachos = [];
 
-const fetchDespachos = () => {
-  return listaDespachos;
+const fetchDespachos = async () => {
+  const pool = await poolPromise;
+  const result = await pool.request().query("SELECT * FROM despachos;");
+
+  return result.recordset;
 };
 
-const fetchDespachoId = (id) => {
-  return _.filter(listaDespachos, { id });
+const fetchDespachoId = async (id) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query("SELECT * FROM despachos WHERE id = @id;");
+
+  return result.recordset;
 };
 
-const agregaDespacho = (idVenta) => {
-  const idDespacho = generateDespachoID();
-  listaDespachos.push({
-    id: idDespacho,
-    idVenta,
-    idDespachador: generateDespachoID(),
-    idRuta: generateDespachoID(),
-    despachado: false,
-  });
+const agregaDespacho = async (idVenta) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("idVenta", sql.Int, idVenta)
+    .input("idDespachador", sql.VarChar, generateDespachoID())
+    .input("idRuta", sql.VarChar, generateDespachoID())
+    .input("despachado", sql.Int, 1)
+    .query(
+      "INSERT INTO despachos (id_venta, id_despachador, id_ruta, despachado) VALUES (@idVenta, @idDespachador, @idRuta, @despachado);  SELECT SCOPE_IDENTITY() AS id; "
+    );
 
-  return idDespacho;
+  return result.recordset[0].id;
 };
 
-const actualizaDespacho = (id) => {
-  let copiaListaDespacho = [...listaDespachos];
-  const despachoEncontrado = _.filter(copiaListaDespacho, { id });
+const actualizaDespacho = async (id) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query("UPDATE despachos SET despachado = 1 WHERE id = @id;");
 
-  if (despachoEncontrado.length) {
-    const index = _.findIndex(copiaListaDespacho, despachoEncontrado[0]);
-    copiaListaDespacho[index].despachado =
-      !copiaListaDespacho[index].despachado;
-    listaDespachos = copiaListaDespacho;
-    return copiaListaDespacho[index];
-  }
-
-  return [];
+  return result.rowsAffected[0];
 };
 
 module.exports = {

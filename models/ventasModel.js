@@ -1,109 +1,87 @@
 const productosModel = require("./productosModel");
 const _ = require("lodash");
 const { v4: uuidv4 } = require("uuid");
+const { poolPromise, sql } = require("../database");
 
 const generaVentaId = () => {
   return uuidv4();
 };
 
-const productos = productosModel.fetchProductos();
+const fetchVentas = async () => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .query(
+      "SELECT v.id, c.RazonSocial, v.monto_total, v.despachado, FORMAT(v.fecha, 'dd-MM-yyyy HH:mm') fecha FROM ventas v LEFT JOIN Cliente c ON c.Id = v.cliente_id ;"
+    );
 
-let ventasLista = [
-  {
-    id: generaVentaId(),
-    productos: [
-      {
-        id: productos[0].id,
-        precio: productos[0].precioUnitario,
-        cantidad: 1,
-        monto: productos[0].precioUnitario * 1,
-      },
-      {
-        id: productos[2].id,
-        precio: productos[2].precioUnitario,
-        cantidad: 4,
-        monto: productos[2].precioUnitario * 4,
-      },
-    ],
-    montoTotal:
-      productos[0].precioUnitario * 1 + productos[2].precioUnitario * 4,
-    clienteId: 4,
-    despachado: false,
-    fecha: Date.now(),
-  },
-  {
-    id: generaVentaId(),
-    productos: [
-      {
-        id: productos[0].id,
-        precio: productos[0].precioUnitario,
-        cantidad: 3,
-        monto: productos[0].precioUnitario * 3,
-      },
-    ],
-    montoTotal: productos[0].precioUnitario * 3,
-    clienteId: 23,
-    despachado: false,
-    fecha: Date.now(),
-  },
-  {
-    id: generaVentaId(),
-    productos: [
-      {
-        id: productos[3].id,
-        precio: productos[3].precioUnitario,
-        cantidad: 1,
-        monto: productos[3].precioUnitario * 1,
-      },
-      {
-        id: productos[2].id,
-        precio: productos[2].precioUnitario,
-        cantidad: 4,
-        monto: productos[2].precioUnitario * 4,
-      },
-    ],
-    montoTotal:
-      productos[2].precioUnitario * 4 + productos[3].precioUnitario * 1,
-    clienteId: 86,
-    despachado: false,
-    fecha: Date.now(),
-  },
-];
-
-const fetchVentas = () => {
-  return ventasLista;
+  return result.recordset;
 };
 
-const fetchVentasId = (id) => {
-  const ventaEncontrada = _.filter(ventasLista, { id });
-  return ventaEncontrada;
+const fetchVentasId = async (id) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query(
+      "SELECT v.id, c.RazonSocial, v.monto_total, v.despachado, FORMAT(v.fecha, 'dd-MM-yyyy HH:mm') fecha FROM ventas v LEFT JOIN Cliente c ON c.Id = v.cliente_id WHERE v.id = @id;"
+    );
+
+  console.log(result);
+  return result.recordset;
 };
 
-const registraVenta = (productos, montoTotal, clienteId) => {
-  let id = generaVentaId();
-  ventasLista.push({
-    id,
-    productos,
-    montoTotal,
-    clienteId,
-    despachado: false,
-    fecha: Date.now(),
-  });
+const fetchProductosVenta = async (ventaId) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, ventaId)
+    .query(
+      "SELECT vp.id, vp.venta_id, vp.producto_id, p.nombre, vp.cantidad, vp.total FROM ventas_productos vp LEFT JOIN productos p ON vp.producto_id  = p.id WHERE vp.id = @id;"
+    );
+
+  return result.recordset;
+};
+
+const registraVentaProducto = async (ventaId, productoId, cantidad, total) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("ventaId", sql.Int, ventaId)
+    .input("productoId", sql.Int, productoId)
+    .input("cantidad", sql.Int, cantidad)
+    .input("total", sql.Int, total)
+    .query(
+      "INSERT INTO ventas_productos (venta_id, producto_id, cantidad, total) VALUES (@ventaId, @productoId, @cantidad, @total); SELECT SCOPE_IDENTITY() AS id;"
+    );
+
+  return result.recordset[0].id;
+};
+
+const registraVenta = async (montoTotal, clienteId, despachado, fecha) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("montoTotal", sql.Int, montoTotal)
+    .input("clienteId", sql.Int, clienteId)
+    .input("despachado", sql.Int, despachado)
+    .input("fecha", sql.DateTime, fecha)
+    .query(
+      "INSERT INTO ventas (monto_total, cliente_id, despachado, fecha) VALUES (@montoTotal, @clienteId, @despachado, @fecha); SELECT SCOPE_IDENTITY() AS id;"
+    );
+
+  return result.recordset[0].id;
+};
+
+const actualizaVenta = async (id, despachado) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("despachado", sql.Int, despachado)
+    .input("id", sql.Int, id)
+    .query("UPDATE ventas SET despachado = @despachado WHERE id = @id;");
+
   return id;
-};
-
-const actualizaVenta = (id) => {
-  let copiaVentasLista = [...ventasLista];
-  const ventaEncontrada = _.filter(copiaVentasLista, { id });
-
-  if (copiaVentasLista.length) {
-    const index = _.findIndex(copiaVentasLista, ventaEncontrada[0]);
-    copiaVentasLista[index] = { ...copiaVentasLista[index], despachado: true };
-    ventasLista = copiaVentasLista;
-    return copiaVentasLista[index];
-  }
-
-  return [];
 };
 
 module.exports = {
@@ -111,4 +89,6 @@ module.exports = {
   fetchVentasId,
   registraVenta,
   actualizaVenta,
+  registraVentaProducto,
+  fetchProductosVenta,
 };
