@@ -37,7 +37,7 @@ const fetchProductosVenta = async (ventaId) => {
     .request()
     .input("id", sql.Int, ventaId)
     .query(
-      "SELECT vp.id, vp.venta_id, vp.producto_id, p.nombre, vp.cantidad, vp.total FROM ventas_productos vp LEFT JOIN productos p ON vp.producto_id  = p.id WHERE vp.id = @id;"
+      "SELECT vp.id, vp.venta_id, vp.producto_id, p.nombre, vp.cantidad, vp.total FROM ventas_productos vp LEFT JOIN productos p ON vp.producto_id  = p.id WHERE vp.venta_id = @id;"
     );
 
   return result.recordset;
